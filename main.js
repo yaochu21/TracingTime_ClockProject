@@ -175,11 +175,9 @@ class Clock {
         this.second_hand_rot += this.speed_second;
         this.internal_counter += 1;
         this.node_links.forEach((l) => l.Effect());
-
-        // if (!(this.internal_counter % 100)) {
-        //     console.log("clock_"+this.id+": speed_second: "+this.speed_second);
-        // }
-        
+        if (!(this.internal_counter % 150) && this.id.includes("debug")) {
+            console.log(this.id + ":" + this.speed_second);
+        }
     }
 
     UpdateNodeLinks() {
@@ -187,6 +185,7 @@ class Clock {
     }
 
     UpdateSpeed(s,m,h,baseSecond=false) {
+        var a = this.speed_second;
         this.speed_second = s;
         if (baseSecond) {
             this.speed_minute = s / this.time_factor
@@ -196,6 +195,10 @@ class Clock {
             this.speed_minute = m;
             this.speed_hour = h;
         }
+        // if (!(this.internal_counter % 150) && this.id.includes("debug")) {
+        //     console.log(this.speed_second - a);
+        // }
+        
     }
     
 }
@@ -237,7 +240,6 @@ class NodeLink {
 
         this.funcs_mats = [
                     [this.Default,mat_line_black], 
-                    [this.AverageBaseSpeed,mat_line_jade],
                     [this.PullBaseSpeed,mat_line_l_green],
                     [this.AccelerateLinear,mat_line_red],
                     [this.AccelerateExponential,mat_line_dark_red],
@@ -352,6 +354,7 @@ class NodeLink {
     }
 
     AverageBaseSpeed(src,dst,src_init,dst_init,proportion=0.00025) {
+        return;
         var speed_src = src.speed_second
         var speed_dst = dst.speed_second
 
@@ -371,32 +374,40 @@ class NodeLink {
         dst.UpdateSpeed(speed_dst_new,0,0,true);
     }
     
-    AccelerateLinear(src,dst,src_init,dst_init,f=0.002) {
+    AccelerateLinear(src,dst,src_init,dst_init,f=0.0005) {
         var speed_dst_new = dst.speed_second + dst.base_speed * f;
+        speed_dst_new = Math.min(10,speed_dst_new);
+
         dst.UpdateSpeed(speed_dst_new,0,0,true);
     }
 
-    AccelerateExponential(src,dst,src_init,dst_init,f=0.0001) {
-        var dy = dst.speed_second * Math.exp(f);
-        var speed_dst_new = dst_init + 100 * f * dy;
+    AccelerateExponential(src,dst,src_init,dst_init,f=0.0006) {
+        var speed_dst_new = dst.speed_second * (1 + f);
+        speed_dst_new = Math.min(10,speed_dst_new);
+
         dst.UpdateSpeed(speed_dst_new,0,0,true);
     }
 
-    AccelerateByExpDelta(src,dst,src_init,dst_init,f=0.00001) {
-        var dy = Math.abs(dst.speed_second-src.speed_second) * Math.exp(f);
-        var speed_dst_new = dst_init + 100 * f * dy;
+    AccelerateByExpDelta(src,dst,src_init,dst_init,f=0.0008) {
+        var speed_delta = Math.max(0,src.speed_second - dst.speed_second);
+        var h = 1 - Math.exp(-speed_delta+Math.log(1/2));
+        var speed_dst_new = dst.speed_second * (1 + f * h)
+        speed_dst_new = Math.min(10,speed_dst_new);
+
         dst.UpdateSpeed(speed_dst_new,0,0,true);
+        
     }
     
-    DecelerateExponential(src,dst,src_init,dst_init,f=0.0001) {
-        var dy = - dst.speed_second * Math.exp(-f);
-        var speed_dst_new = dst_init + dy;
+    DecelerateExponential(src,dst,src_init,dst_init,f=0.0006) {
+        var speed_dst_new = dst.speed_second * (1 - f)
         dst.UpdateSpeed(speed_dst_new,0,0,true);
     }
 
-    DecelerateByExpDelta(src,dst,src_init,dst_init,f=0.0001) {
-        var dy = -Math.abs(dst.speed_second-src.speed_second) * Math.exp(-f);
-        var speed_dst_new = dst_init + dy;
+    DecelerateByExpDelta(src,dst,src_init,dst_init,f=0.0008) {
+        var speed_delta = Math.max(0,dst.speed_second-src.speed_second);
+        var h = 1 - Math.exp(-speed_delta+Math.log(1/2));
+        var speed_dst_new = dst.speed_second * (1 - f * h)
+
         dst.UpdateSpeed(speed_dst_new,0,0,true);
     }
 
@@ -534,8 +545,9 @@ function onDrag(event) {
 
 //#region MAIN
 var clocks = []
-clocks.push(new Clock(my_scene,'a',-50,0,40,0.5,10,0.001))
-clocks.push(new Clock(my_scene,'b',50,0,40,0.5,10,0.02))
+clocks.push(new Clock(my_scene,"debug_a",-100,0,40,0.5,10,0.001));
+clocks.push(new Clock(my_scene,"debug_b",0,0,40,0.5,10,0.02));
+clocks.push(new Clock(my_scene,'c',100,0,40,0.5,10,0.01));
 
 const controls = new DragControls( clocks.map((c) => c.in_circle), camera, renderer.domElement );
 controls.recursive = false;
