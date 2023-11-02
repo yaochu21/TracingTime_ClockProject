@@ -114,7 +114,7 @@ function clock_hand(start_x,start_y,pos_x,pos_y,dir,dist,material=mat_line_black
 }
 
 class Clock {
-    constructor(scene,id,pos_x,pos_y,radius,border_width=0.5,factor=60,speed_second=0.005,speed_minute=null,speed_hour=null) {
+    constructor(scene,id,pos_x,pos_y,radius,border_width=0.5,factor=60,speed_second=0.005,node_count=4,speed_minute=null,speed_hour=null) {
         this.pos_x = pos_x;
         this.pos_y = pos_y;
         this.radius = radius;
@@ -126,6 +126,7 @@ class Clock {
         this.node_links = [];
         this.dst_nodes = [];
         this.src_nodes = [];
+        this.node_count = node_count;
         this.scene = scene;
         this.time_factor = factor;
         this.second_hand_rot = 0;
@@ -133,6 +134,7 @@ class Clock {
         this.hour_hand_rot = 0;
         this.internal_counter = 0;
         this.id = id;
+        this.active = true;
         this.Instantiate();
     }
 
@@ -163,10 +165,13 @@ class Clock {
         this.scene.add(this.in_circle);
         this.in_circle.userData = this;
 
-        this.node_array = new NodeArray(this.scene,this,4);
+        this.node_array = new NodeArray(this.scene,this,this.node_count);
     }
 
     Tick() {
+        if (!this.active) {
+            return;
+        }
         this.hourhand.rotateZ(this.speed_hour);
         this.minutehand.rotateZ(this.speed_minute);
         this.secondhand.rotateZ(this.speed_second);
@@ -185,6 +190,9 @@ class Clock {
     }
 
     UpdateSpeed(s,m,h,baseSecond=false) {
+        if (!this.active) {
+            return;
+        }
         var a = this.speed_second;
         this.speed_second = s;
         if (baseSecond) {
@@ -199,6 +207,19 @@ class Clock {
         //     console.log(this.speed_second - a);
         // }
         
+    }
+
+    Pause() {
+        this.active = false;
+    }
+
+    Play() {
+        this.active = true;
+    }
+
+    PauseAndReset() {
+        this.UpdateSpeed(this.base_speed,0,0,true);
+        this.active = false;
     }
     
 }
@@ -416,11 +437,12 @@ class NodeLink {
 
 //#endregion
 
-//#region UserOperations
+//#region UI Operations
 var clicked = []
 var hovered = null;
 const NODELAYER = 5;
 const NODELINKLAYER = 6;
+const UILAYER = 7;
 const pointer = new THREE.Vector2();
 const nodeRaycaster = new THREE.Raycaster();
 nodeRaycaster.layers.set(NODELAYER);
@@ -540,16 +562,57 @@ function onDrag(event) {
     var clock = event.object.userData;
     clock.UpdateNodeLinks();
 }
+
+function onKeyPress(event) {
+    console.log(event);
+
+    switch (event.which) {
+        case 32:
+            if (paused) {
+                my_clocks.forEach((c) => c.Play());
+                paused = false;
+                console.log("play");
+            }
+            else {
+                my_clocks.forEach((c) => c.Pause());
+                paused = true;
+                console.log("pause");
+            }
+            break;
+        case 113:
+            my_clocks.forEach((c) => c.PauseAndReset());
+            paused = true;
+            console.log("reset")
+            break;
+        case 101:
+            GenerateRandomClock();
+            break;
+    }
+}
+
+function GenerateRandomClock() {
+    var key = Math.random().toString();
+    var base_speed = THREE.MathUtils.randInt(5,100) * 0.0001;
+    var pos_x = 285*THREE.MathUtils.randFloat(-1,1);
+    var pos_y = 145*THREE.MathUtils.randFloat(-1,1);
+    var num_nodes = THREE.MathUtils.randInt(2,8);
+    my_clocks.push(new Clock(my_scene,key,pos_x,pos_y,40,0.5,10,base_speed,num_nodes));
+    
+    var controls = new DragControls( my_clocks.map((c) => c.in_circle), camera, renderer.domElement );
+    controls.recursive = false;
+    controls.activate();
+    controls.addEventListener('drag',onDrag)
+}
+
 //#endregion
 
 
 //#region MAIN
-var clocks = []
-clocks.push(new Clock(my_scene,"debug_a",-100,0,40,0.5,10,0.001));
-clocks.push(new Clock(my_scene,"debug_b",0,0,40,0.5,10,0.02));
-clocks.push(new Clock(my_scene,'c',100,0,40,0.5,10,0.01));
+var my_clocks = []
+var paused = false;
+my_clocks.push(new Clock(my_scene,"a",0,10,40,0.5,10,0.01));
 
-const controls = new DragControls( clocks.map((c) => c.in_circle), camera, renderer.domElement );
+var controls = new DragControls( my_clocks.map((c) => c.in_circle), camera, renderer.domElement );
 controls.recursive = false;
 controls.activate();
 controls.addEventListener('drag',onDrag)
@@ -557,7 +620,7 @@ controls.addEventListener('drag',onDrag)
 function draw() {
 	requestAnimationFrame( draw );
 
-    clocks.forEach((c) => c.Tick());
+    my_clocks.forEach((c) => c.Tick());
 
 	renderer.render( my_scene, camera );
 }
@@ -565,10 +628,6 @@ draw();
 
 window.addEventListener( 'pointermove', onPointerMove );
 window.addEventListener('pointerdown', onPointerClick);
+window.addEventListener('keypress',onKeyPress);
 
 //#endregion
-
-// TDL:
-// 1. Ability to add and destroy clocks
-// 2. Ability to pause and restart effects cycle
-// 3. Ability to randomly generate clocks
