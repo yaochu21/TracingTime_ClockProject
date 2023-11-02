@@ -26,8 +26,8 @@ Refresh the webpage to start things over.\
 .\
 .\
 .\
-Each colored arrow sends signals to the destination clock from the src clock.
-Black (nothing).
-Green (pulls rate of dst clock towards src clock)
-Red (linear increase), Dark Red (exp increase), Orange (exp increase based on dest and src clock delta).
-Blue (exp decrease), Dark Blue (exp decrease based on dest and src clock delta).
+Each colored arrow sends signals to the destination clock from the src clock.\
+Black (nothing).\
+Green (pulls rate of dst clock towards src clock).\
+Red (linear increase), Dark Red (exp increase), Orange (exp increase based on dest and src clock delta).\
+Blue (exp decrease), Dark Blue (exp decrease based on dest and src clock delta).\
