@@ -29,7 +29,11 @@ const color_black = 0x0
 const color_grey = 0x8a8a8a
 const color_light_grey = 0xb8b8b8
 const color_blue = 0x009fe3
-const color_red = 0xd00000
+const color_dark_blue = 0x0048bf
+const color_dark_red = 0xd00000
+const color_red = 0xed7d7d
+const color_light_green = 0x84ce84
+const color_orange = 0xffab36
 
 const material_black = new THREE.MeshBasicMaterial({
     color: color_black
@@ -52,15 +56,23 @@ const material_bg = new THREE.MeshBasicMaterial({
 })
 
 
+const mat_line_black_thick = new THREE.LineBasicMaterial( { color: color_black, linewidth: 1 } );
 
-const material_line_black = new THREE.LineBasicMaterial( { color: color_black, linewidth: 0.5 } );
+const mat_line_black = new THREE.LineBasicMaterial( { color: color_black, linewidth: 0.5 } );
 
-const material_line_blue = new THREE.LineBasicMaterial( { color: color_blue, linewidth: 0.5 } );
+const mat_line_blue = new THREE.LineBasicMaterial( { color: color_blue, linewidth: 0.5 } );
 
-const material_line_red = new THREE.LineBasicMaterial( { color: color_red, linewidth: 0.5 } );
+const mat_line_dark_blue = new THREE.LineBasicMaterial( { color: color_dark_blue, linewidth: 0.5 } );
 
-const material_line_jade = new THREE.LineBasicMaterial( { color: color_jade, linewidth: 0.5 } );
+const mat_line_dark_red = new THREE.LineBasicMaterial( { color: color_dark_red, linewidth: 0.5 } );
 
+const mat_line_red = new THREE.LineBasicMaterial( { color: color_red, linewidth: 0.5 } );
+
+const mat_line_orange = new THREE.LineBasicMaterial( { color: color_orange, linewidth: 0.5 } );
+
+const mat_line_jade = new THREE.LineBasicMaterial( { color: color_jade, linewidth: 0.5 } );
+
+const mat_line_l_green = new THREE.LineBasicMaterial( {color: color_light_green, linewidth: 0.5 })
 
 //#endregion
 
@@ -88,7 +100,7 @@ function circle(x,y,r) {
     return circle;
 }
 
-function arrow(start_x,start_y,pos_x,pos_y,dir,dist,material=material_line_black,z = 0,) {
+function clock_hand(start_x,start_y,pos_x,pos_y,dir,dist,material=mat_line_black,z = 0,) {
     const points = [];
     const o = new THREE.Vector3( start_x, start_y, z )
     const end = new THREE.Vector3(start_x, start_y, z).addScaledVector(dir.normalize(),dist);
@@ -102,26 +114,35 @@ function arrow(start_x,start_y,pos_x,pos_y,dir,dist,material=material_line_black
 }
 
 class Clock {
-    constructor(scene,pos_x,pos_y,radius,border_width=0.5,factor=60,speed_second=0.005,speed_minute=null,speed_hour=null) {
+    constructor(scene,id,pos_x,pos_y,radius,border_width=0.5,factor=60,speed_second=0.005,speed_minute=null,speed_hour=null) {
         this.pos_x = pos_x;
         this.pos_y = pos_y;
         this.radius = radius;
         this.border_width = border_width;
+        this.base_speed = speed_second;
         this.speed_second = speed_second;
         this.speed_minute = speed_minute ? speed_minute : this.speed_second / factor;
         this.speed_hour = speed_hour ? speed_hour : this.speed_minute / factor;
         this.node_links = [];
+        this.dst_nodes = [];
+        this.src_nodes = [];
         this.scene = scene;
+        this.time_factor = factor;
+        this.second_hand_rot = 0;
+        this.minute_hand_rot = 0;
+        this.hour_hand_rot = 0;
+        this.internal_counter = 0;
+        this.id = id;
         this.Instantiate();
     }
 
     Instantiate() {
         const [in_circle,out_circle] = clockShape(this.pos_x,this.pos_y,this.radius,this.border_width);
-        const hour = arrow(0,0,0,0,new THREE.Vector3(1,1,0),this.radius / 2);
-        const minute = arrow(0,0,0,0,new THREE.Vector3(0,1,0),this.radius * 3 / 4);
-        const second = arrow(-this.radius/10,-this.radius/10,0,0,new THREE.Vector3(1,1,0),this.radius);
+        const hour = clock_hand(0,0,0,0,new THREE.Vector3(1,1,0),this.radius / 2);
+        const minute = clock_hand(0,0,0,0,new THREE.Vector3(0,1,0),this.radius * 3 / 4);
+        const second = clock_hand(-this.radius/10,-this.radius/10,0,0,new THREE.Vector3(1,1,0),this.radius);
         const dot = circle(0,0,0.7 * this.radius / 40);
-        dot.renderOrder = 1;
+        dot.renderOrder = 2;
 
         this.hourhand = hour;
         this.minutehand = minute;
@@ -140,14 +161,42 @@ class Clock {
         this.group = group;
         this.in_circle.add(group);
         this.scene.add(this.in_circle);
+        this.in_circle.userData = this;
+
+        this.node_array = new NodeArray(this.scene,this,4);
     }
 
     Tick() {
         this.hourhand.rotateZ(this.speed_hour);
         this.minutehand.rotateZ(this.speed_minute);
         this.secondhand.rotateZ(this.speed_second);
+        this.hour_hand_rot += this.speed_hour;
+        this.minute_hand_rot += this.speed_minute;
+        this.second_hand_rot += this.speed_second;
+        this.internal_counter += 1;
+        this.node_links.forEach((l) => l.Effect());
+
+        // if (!(this.internal_counter % 100)) {
+        //     console.log("clock_"+this.id+": speed_second: "+this.speed_second);
+        // }
+        
     }
 
+    UpdateNodeLinks() {
+        this.node_links.forEach((l) => l.updateGeometry());
+    }
+
+    UpdateSpeed(s,m,h,baseSecond=false) {
+        this.speed_second = s;
+        if (baseSecond) {
+            this.speed_minute = s / this.time_factor
+            this.speed_hour = this.speed_minute / this.time_factor
+        }
+        else {
+            this.speed_minute = m;
+            this.speed_hour = h;
+        }
+    }
     
 }
 
@@ -169,10 +218,13 @@ class NodeArray {
         const angle_offset = 2*Math.PI / this.count;
         for (var i = 0; i < this.count; i++) {
             const circle = new THREE.Shape();
-            circle.absarc(x,0,this.size);
+            circle.absarc(0,0,this.size);
             const geometry = new THREE.ShapeGeometry(circle,segments/2);
             const mesh = new THREE.Mesh(geometry,this.material);
-            mesh.rotateZ(angle_offset*i);
+            var pos_x = x * Math.cos(angle_offset*i)
+            var pos_y = x * Math.sin(angle_offset*i);
+            mesh.position.set(pos_x,pos_y,0);
+
             mesh.userData = this;
             mesh.layers.enable(NODELAYER);
             this.clock.in_circle.add(mesh);
@@ -181,10 +233,18 @@ class NodeArray {
 }
 
 class NodeLink {
-    constructor(scene,node_a,node_b,clock_a,clock_b,func_index=0,func_args=null) {
+    constructor(scene,node_a,node_b,clock_a,clock_b,func_index=0) {
 
-        this.mats = [material_line_black,material_line_blue,material_line_jade,material_line_red];
-        this.funcs = [this.Default,this.Accelerate,this.Decelerate,this.Repulsion]
+        this.funcs_mats = [
+                    [this.Default,mat_line_black], 
+                    [this.AverageBaseSpeed,mat_line_jade],
+                    [this.PullBaseSpeed,mat_line_l_green],
+                    [this.AccelerateLinear,mat_line_red],
+                    [this.AccelerateExponential,mat_line_dark_red],
+                    [this.AccelerateByExpDelta,mat_line_orange],
+                    [this.DecelerateExponential,mat_line_blue],
+                    [this.DecelerateByExpDelta,mat_line_dark_blue]];
+        console.log(this.funcs_mats);
         this.scene = scene;
 
         this.node_a = node_a;
@@ -192,10 +252,9 @@ class NodeLink {
         this.src_clock = clock_a;
         this.dst_clock = clock_b;
         this.active_func_index = func_index;
-        this.func_args = func_args;
 
-        console.log(clock_a);
         clock_a.node_links.push(this);
+        clock_b.node_links.push(this);
 
         this.Instantiate();
         
@@ -203,45 +262,142 @@ class NodeLink {
 
     Instantiate() {
         console.log(this);
-        const points = [];
         var pos_a = new Vector3();
         var pos_b = new Vector3();
         this.node_a.getWorldPosition(pos_a);
         this.node_b.getWorldPosition(pos_b);
 
+        // draws line from node a to node b
         const o = new THREE.Vector3( pos_a.x, pos_a.y, 0 )
         const end = new THREE.Vector3(pos_b.x, pos_b.y, 0)
-        points.push( o );
-        points.push(end);
 
-        const geometry = new THREE.BufferGeometry().setFromPoints( points );
-        const line = new THREE.Line( geometry, this.mats[this.active_func_index] );
+        const geometry = new THREE.BufferGeometry().setFromPoints( [o,end] );
+        const line_mesh = new THREE.Line( geometry, this.funcs_mats[this.active_func_index][1] );
+        line_mesh.layers.enable(NODELINKLAYER);
+        line_mesh.userData = this;
 
-        console.log(line);
+        this.line = line_mesh;
+        this.scene.add(line_mesh);
 
-        this.shape = line;
-        this.scene.add(line);
+        // draws arrow that points to node b
+        var vec_end_o = new Vector3().subVectors(end,o).normalize();
+        var vec_end_o_perp = new Vector3(-vec_end_o.y,vec_end_o.x,vec_end_o.z).normalize();
+        var p0 = end.clone();
+        p0.addScaledVector(vec_end_o,-4).addScaledVector(vec_end_o_perp,-3);
+        var p2 = end.clone();
+        p2.addScaledVector(vec_end_o,-4).addScaledVector(vec_end_o_perp,3);
+        var p1 = end.clone();
+
+        const arrow_geometry = new THREE.BufferGeometry().setFromPoints( [p0,p1,p2] );
+        const arrow_mesh = new THREE.Line( arrow_geometry, this.funcs_mats[this.active_func_index][1] );
+        this.arrow = arrow_mesh;
+        this.scene.add(arrow_mesh);
+
+        // cover node a with large circle
+        var c = circle(pos_a.x,pos_a.y,3);
+        c.renderOrder = 2;
+        this.src_clock.in_circle.attach(c);
+
+    }
+
+    updateGeometry() {
+        var o = new Vector3();
+        var end = new Vector3();
+        this.node_a.getWorldPosition(o);
+        this.node_b.getWorldPosition(end);
+
+        const line_geometry = this.line.geometry;
+        const line_positions = line_geometry.attributes.position;
+        line_positions.setXYZ(0, o.x, o.y, o.z);
+        line_positions.setXYZ(1, end.x, end.y, end.z);
+        line_geometry.attributes.position.needsUpdate = true;
+
+        const arrow_geometry = this.arrow.geometry;
+        const arrow_positions = arrow_geometry.attributes.position;
+        
+        var vec_end_o = new Vector3().subVectors(end,o).normalize();
+        var vec_end_o_perp = new Vector3(-vec_end_o.y,vec_end_o.x,vec_end_o.z).normalize();
+        var p0 = end.clone();
+        p0.addScaledVector(vec_end_o,-4).addScaledVector(vec_end_o_perp,-3);
+        var p2 = end.clone();
+        p2.addScaledVector(vec_end_o,-4).addScaledVector(vec_end_o_perp,3);
+        var p1 = end.clone();
+
+        arrow_positions.setXYZ(0,p0.x,p0.y,p0.z);
+        arrow_positions.setXYZ(1,p1.x,p1.y,p1.z);
+        arrow_positions.setXYZ(2,p2.x,p2.y,p2.z);
+        arrow_geometry.attributes.position.needsUpdate = true;
+        
+    }
+
+    IncrementEffectIndex() {
+        this.active_func_index += 1;
+        if (this.active_func_index >= this.funcs_mats.length) {
+            this.active_func_index = 0;
+        }
+        this.line.material = this.funcs_mats[this.active_func_index][1];
+        this.arrow.material = this.funcs_mats[this.active_func_index][1];
+        console.log("current effect:"+this.funcs_mats[this.active_func_index][0].name)
+
+        this.dstSpeedOnEffectChange = this.dst_clock.speed_second;
+        this.srcSpeedOnEffectChange = this.src_clock.speed_second;
     }
 
     Effect() {
+        this.funcs_mats[this.active_func_index][0](this.src_clock,this.dst_clock,this.srcSpeedOnEffectChange,this.dstSpeedOnEffectChange);
+    }
+
+    Default(src,dst,src_init,dst_init) {
 
     }
 
+    AverageBaseSpeed(src,dst,src_init,dst_init,proportion=0.00025) {
+        var speed_src = src.speed_second
+        var speed_dst = dst.speed_second
 
-    Default(src,dst) {
+        var true_avg = (speed_dst + speed_src) / 2.0;
+        var speed_src_new = THREE.MathUtils.lerp(speed_src,true_avg,proportion);
+        var speed_dst_new = THREE.MathUtils.lerp(speed_dst,true_avg,proportion);
+        src.UpdateSpeed(speed_src_new,0,0,true);
+        dst.UpdateSpeed(speed_dst_new,0,0,true);
+    }
 
+    PullBaseSpeed(src,dst,src_init,dst_init,proportion=0.00025) {
+        var speed_src = src.speed_second
+        var speed_dst = dst.speed_second
+
+        var true_avg = (speed_dst + speed_src) / 2.0;
+        var speed_dst_new = THREE.MathUtils.lerp(speed_dst,true_avg,proportion);
+        dst.UpdateSpeed(speed_dst_new,0,0,true);
     }
     
-    Accelerate(src,dst) {
-    
+    AccelerateLinear(src,dst,src_init,dst_init,f=0.002) {
+        var speed_dst_new = dst.speed_second + dst.base_speed * f;
+        dst.UpdateSpeed(speed_dst_new,0,0,true);
+    }
+
+    AccelerateExponential(src,dst,src_init,dst_init,f=0.0001) {
+        var dy = dst.speed_second * Math.exp(f);
+        var speed_dst_new = dst_init + 100 * f * dy;
+        dst.UpdateSpeed(speed_dst_new,0,0,true);
+    }
+
+    AccelerateByExpDelta(src,dst,src_init,dst_init,f=0.00001) {
+        var dy = Math.abs(dst.speed_second-src.speed_second) * Math.exp(f);
+        var speed_dst_new = dst_init + 100 * f * dy;
+        dst.UpdateSpeed(speed_dst_new,0,0,true);
     }
     
-    Decelerate(src,dst) {
-    
+    DecelerateExponential(src,dst,src_init,dst_init,f=0.0001) {
+        var dy = - dst.speed_second * Math.exp(-f);
+        var speed_dst_new = dst_init + dy;
+        dst.UpdateSpeed(speed_dst_new,0,0,true);
     }
-    
-    Repulsion(src,dst) {
-        
+
+    DecelerateByExpDelta(src,dst,src_init,dst_init,f=0.0001) {
+        var dy = -Math.abs(dst.speed_second-src.speed_second) * Math.exp(-f);
+        var speed_dst_new = dst_init + dy;
+        dst.UpdateSpeed(speed_dst_new,0,0,true);
     }
 
 }
@@ -249,12 +405,17 @@ class NodeLink {
 
 //#endregion
 
+//#region UserOperations
 var clicked = []
 var hovered = null;
-var NODELAYER = 5;
+const NODELAYER = 5;
+const NODELINKLAYER = 6;
 const pointer = new THREE.Vector2();
 const nodeRaycaster = new THREE.Raycaster();
 nodeRaycaster.layers.set(NODELAYER);
+
+const nodeLinkRaycaster = new THREE.Raycaster();
+nodeLinkRaycaster.layers.set(NODELINKLAYER);
 
 function onPointerMove( event ) {
 
@@ -284,10 +445,20 @@ function onPointerMove( event ) {
 }
 
 function onPointerClick( event ) {
+
+    if (checkNodeRaycast(event)) {
+        return;
+    }
+    if (checkNodeLinkRaycast(event)) {
+        return;
+    }
+
+}
+
+function checkNodeRaycast(event) {
     nodeRaycaster.setFromCamera( pointer, camera );
     const intersects = nodeRaycaster.intersectObjects( my_scene.children );
 
-    console.log(intersects);
     if (intersects.length <= 0) {
         if (clicked.length > 0) {
             for (var i = 0; i < clicked.length; i++) {
@@ -295,7 +466,7 @@ function onPointerClick( event ) {
             }
             clicked = []
         }
-        return;
+        return false;
     }
     
     if (clicked.length >= 2) {
@@ -307,9 +478,23 @@ function onPointerClick( event ) {
     obj.material = material_black;
 
     if (clicked.length == 2) {
-
         processNodeLink(clicked);
     }
+
+    return true;
+}
+
+
+function checkNodeLinkRaycast(event) {
+    nodeLinkRaycaster.setFromCamera(pointer,camera);
+    const intersects = nodeLinkRaycaster.intersectObjects(my_scene.children);
+
+    if (intersects.length <= 0) {
+        return false;
+    }
+    console.log("clicked on node link");
+    const node_link = intersects[0].object.userData;
+    node_link.IncrementEffectIndex();
 }
 
 function processNodeLink(nodes) {
@@ -321,31 +506,46 @@ function processNodeLink(nodes) {
     var node_b = nodes[1]
 
     if (node_a.userData == node_b.userData) {
-        console.log("nodes in same node array")
+        console.log("nodes in same node array");
+        return;
+    }
+
+    if (node_a.userData.clock.dst_nodes.indexOf(node_b) !== -1) {
+        console.log("link already exists");
+        return;
+    }
+    if (node_b.userData.clock.dst_nodes.indexOf(node_a) !== -1) {
+        console.log("link already exists");
         return;
     }
 
     console.log("instantiating node link")
     var node_link = new NodeLink(my_scene,node_a,node_b,node_a.userData.clock,node_b.userData.clock);
-
-    
+    node_a.userData.clock.dst_nodes.push(node_b);
+    node_b.userData.clock.src_nodes.push(node_a);
 }
 
+function onDrag(event) {
+    var clock = event.object.userData;
+    clock.UpdateNodeLinks();
+}
+//#endregion
 
-//#region main
-const clock_a = new Clock(my_scene,0,0,40,0.5,10,0.008);
-const clock_b = new Clock(my_scene,10,10,40,0.5,10,0.01);
-const node_arr_a = new NodeArray(my_scene,clock_a,4);
-const node_arr_b = new NodeArray(my_scene,clock_b,4);
 
-const controls = new DragControls( [clock_a.in_circle,clock_b.in_circle], camera, renderer.domElement );
+//#region MAIN
+var clocks = []
+clocks.push(new Clock(my_scene,'a',-50,0,40,0.5,10,0.001))
+clocks.push(new Clock(my_scene,'b',50,0,40,0.5,10,0.02))
+
+const controls = new DragControls( clocks.map((c) => c.in_circle), camera, renderer.domElement );
 controls.recursive = false;
+controls.activate();
+controls.addEventListener('drag',onDrag)
 
 function draw() {
 	requestAnimationFrame( draw );
 
-    clock_a.Tick();
-    clock_b.Tick();
+    clocks.forEach((c) => c.Tick());
 
 	renderer.render( my_scene, camera );
 }
@@ -355,3 +555,8 @@ window.addEventListener( 'pointermove', onPointerMove );
 window.addEventListener('pointerdown', onPointerClick);
 
 //#endregion
+
+// TDL:
+// 1. Ability to add and destroy clocks
+// 2. Ability to pause and restart effects cycle
+// 3. Ability to randomly generate clocks
