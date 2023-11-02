@@ -5,12 +5,12 @@ A small experiment with clocks as a network via three.js for arch [26616](https:
 ![demo](screenshot.png)
 
 ### Guide
-Click on two nodes (from different clocks) to link them. Nodes are the grey circles orbiting the clock.
-Click on the arrow between two nodes to change their function.
-Press **E** to add a new clock.
-Press **Q** to pause reset clocks to their original state.
-Press **Space** to pause/unpause all clocks.
-Refresh the webpage to start things over.
+Click on two nodes (from different clocks) to link them. Nodes are the grey circles orbiting the clock.\
+Click on the arrow between two nodes to change their function.\
+Press **E** to add a new clock.\
+Press **Q** to pause reset clocks to their original state.\
+Press **Space** to pause/unpause all clocks.\
+Refresh the webpage to start things over.\
 .
 .
 .
