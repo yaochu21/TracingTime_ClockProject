@@ -11,21 +11,20 @@ Press **E** to add a new clock.\
 Press **Q** to pause reset clocks to their original state.\
 Press **Space** to pause/unpause all clocks.\
 Refresh the webpage to start things over.\
-.\
-.\
-.\
-.\
-.\
-.\
-.\
-.\
-.\
-.\
-.\
-.\
-.\
-.\
-.\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
 Each colored arrow sends signals to the destination clock from the src clock.\
 Black (nothing).\
 Green (pulls rate of dst clock towards src clock).\
