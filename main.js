@@ -592,7 +592,7 @@ function onKeyPress(event) {
 
 function GenerateRandomClock() {
     var key = Math.random().toString();
-    var base_speed = THREE.MathUtils.randInt(5,100) * 0.0001;
+    var base_speed = THREE.MathUtils.randInt(3,300) * 0.0001;
     var pos_x = 285*THREE.MathUtils.randFloat(-1,1);
     var pos_y = 145*THREE.MathUtils.randFloat(-1,1);
     var num_nodes = THREE.MathUtils.randInt(2,8);
